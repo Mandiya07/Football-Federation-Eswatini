@@ -42,6 +42,13 @@ export default function Clubs() {
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1431324155629-1a6fc1ac5eab?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
         <div className="container mx-auto max-w-5xl text-center relative z-10">
+          <div className="flex justify-center mb-4">
+            <img
+              src="/assets/aistudio/indvundvundvwane_major_league_logo_a9d0b495.jpg"
+              alt="Indvundvundvwane Major League Logo"
+              className="w-24 h-24 object-contain rounded-2xl bg-white p-1.5 shadow-xl border-2 border-secondary"
+            />
+          </div>
           <h1 className="text-5xl font-bold tracking-tighter mb-4">Member Clubs & Infrastructure</h1>
           <p className="text-xl text-gray-400 leading-relaxed max-w-3xl mx-auto mb-8">
             Explore our verified professional clubs. The FFE mandates strict infrastructure guidelines to guarantee modern, safe facilities for players and fans.

@@ -8,47 +8,122 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, CheckCircle2, Building, FileText, ArrowRight, ArrowLeft, Landmark, MapPin, Search } from 'lucide-react';
-import { Link, Navigate } from 'react-router-dom';
+import { Upload, CheckCircle2, Building, FileText, ArrowRight, ArrowLeft, Landmark, MapPin, Search, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { AuthDomainError, db, signInWithGoogle } from '@/lib/firebase';
+
+interface AttachedDocument {
+  docKey: string;
+  fileName: string;
+  fileSizeKb: number;
+  mimeType: string;
+}
 
 export default function Apply() {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedAppId, setSubmittedAppId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("apply");
   const [statusAppId, setStatusAppId] = useState("");
   const [appStatus, setAppStatus] = useState<null | 'Pending' | 'Under Review' | 'Approved' | 'Not Found' | 'Rejected'>(null);
+
+  // Form state
   const [clubName, setClubName] = useState("");
+  const [yearFounded, setYearFounded] = useState("");
+  const [region, setRegion] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [presidentName, setPresidentName] = useState("");
+  const [presidentContact, setPresidentContact] = useState("");
+  const [ceoName, setCeoName] = useState("");
+  const [ceoContact, setCeoContact] = useState("");
+  const [coachName, setCoachName] = useState("");
+  const [coachContact, setCoachContact] = useState("");
+  const [complianceName, setComplianceName] = useState("");
+  const [complianceContact, setComplianceContact] = useState("");
+  const [companyReg, setCompanyReg] = useState("");
+  const [facilityDetails, setFacilityDetails] = useState("");
+  const [documents, setDocuments] = useState<Record<string, AttachedDocument>>({});
+
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, loading } = useAuth();
 
-  const totalSteps = 5;
-  
-  // Represents form progress
-  const progress = ((step - 1) / totalSteps) * 100;
+  const handleFileAttach = (docKey: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError(`"${file.name}" exceeds the 10MB limit.`);
+      return;
+    }
+    setDocuments(prev => ({
+      ...prev,
+      [docKey]: {
+        docKey,
+        fileName: file.name.slice(0, 120),
+        fileSizeKb: Math.max(1, Math.round(file.size / 1024)),
+        mimeType: file.type || 'application/octet-stream',
+      }
+    }));
+  };
+
+  const handleInlineLogin = async () => {
+    setLoginError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      if (err instanceof AuthDomainError) {
+        setLoginError(err.message);
+      } else {
+        setLoginError(err?.message || 'Unable to sign in with Google. Check popup settings and try again.');
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!user) {
-      alert("You must be logged in to apply.");
+      setFormError("You must be signed in to submit an application.");
+      return;
+    }
+    if (!clubName.trim()) {
+      setFormError("Please enter your Registered Club Name in Step 1.");
+      setStep(1);
       return;
     }
     
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'applications'), {
-        clubName: clubName,
+      const docRef = await addDoc(collection(db, 'applications'), {
+        clubName: clubName.trim().slice(0, 200),
+        yearFounded: yearFounded.trim().slice(0, 10),
+        region: region.trim().slice(0, 64),
+        contactName: contactName.trim().slice(0, 150),
+        contactEmail: contactEmail.trim().slice(0, 200),
+        officials: {
+          president: { name: presidentName.trim().slice(0, 120), contact: presidentContact.trim().slice(0, 120) },
+          ceo: { name: ceoName.trim().slice(0, 120), contact: ceoContact.trim().slice(0, 120) },
+          headCoach: { name: coachName.trim().slice(0, 120), contact: coachContact.trim().slice(0, 120) },
+          complianceOfficer: { name: complianceName.trim().slice(0, 120), contact: complianceContact.trim().slice(0, 120) },
+        },
+        companyReg: companyReg.trim().slice(0, 100),
+        facilityDetails: facilityDetails.trim().slice(0, 2000),
+        attachedDocuments: Object.values(documents),
         status: 'Pending',
         userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      setSubmittedAppId(docRef.id);
       setIsSubmitted(true);
     } catch (error) {
       console.error("Error submitting application", error);
-      alert("Failed to submit application.");
+      setFormError("Failed to submit licensing package. Please verify your internet connection and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -59,17 +134,15 @@ export default function Apply() {
     if (!statusAppId.trim() || !user) return;
     
     try {
-      // For real implementation, usually we query by the document ID.
-      // But standard firestore rules might block getting a doc by arbitrary ID if you don't own it.
-      // Assuming they enter the exact document ID or something. 
-      // If the user is checking their own application:
       const q = query(collection(db, 'applications'), where('userId', '==', user.uid));
       const querySnapshot = await getDocs(q);
       
       let found = false;
-      querySnapshot.forEach((doc) => {
-        if (doc.id === statusAppId || doc.data().clubName.toLowerCase().includes(statusAppId.toLowerCase())) {
-          setAppStatus(doc.data().status);
+      const needle = statusAppId.trim().toLowerCase();
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (docSnap.id.toLowerCase() === needle || (data.clubName && String(data.clubName).toLowerCase().includes(needle))) {
+          setAppStatus(data.status);
           found = true;
         }
       });
@@ -84,7 +157,14 @@ export default function Apply() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-zinc-50 font-sans flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-zinc-50 flex flex-col font-sans">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -93,10 +173,19 @@ export default function Apply() {
         <Navbar />
         <main className="container mx-auto px-4 py-20 flex-grow flex items-center justify-center">
           <Card className="max-w-2xl w-full text-center border-none shadow-xl bg-white p-8 md:p-12">
-            <h2 className="text-3xl font-bold mb-4">Login Required</h2>
-            <p className="text-gray-600 mb-8 text-lg">
-              You must be logged in to access the Digital Licensing Engine and submit a club application.
+            <h2 className="text-3xl font-bold mb-4">Sign In Required</h2>
+            <p className="text-gray-600 mb-6 text-lg">
+              You must be signed in to access the Digital Licensing Engine and submit or track a club application.
             </p>
+            {loginError && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-left text-sm text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <span>{loginError}</span>
+              </div>
+            )}
+            <Button onClick={handleInlineLogin} size="lg" className="bg-black text-white hover:bg-black/80 px-8">
+              Continue with Google
+            </Button>
           </Card>
         </main>
       </div>
@@ -111,6 +200,11 @@ export default function Apply() {
           <Card className="max-w-2xl w-full text-center border-none shadow-xl bg-white p-8 md:p-12">
             <CheckCircle2 className="w-20 h-20 text-blue-500 mx-auto mb-6" />
             <h2 className="text-3xl font-bold mb-4">Application Submitted</h2>
+            {submittedAppId && (
+              <p className="text-sm font-mono bg-zinc-100 inline-block px-3 py-1 rounded mb-4 text-zinc-700">
+                Reference ID: {submittedAppId}
+              </p>
+            )}
             <p className="text-gray-600 mb-8 text-lg">
               Your licensing package has been successfully submitted to the FFE Digital Licensing Engine. 
               Our compliance officers will review your corporate and infrastructure documents within 48 hours.
@@ -140,6 +234,36 @@ export default function Apply() {
       </div>
     );
   }
+
+  const renderUploadRow = (docKey: string, title: string, subtitle: string, accentBg = 'bg-primary/10 text-primary', iconEl = <FileText className="w-5 h-5" />) => {
+    const attached = documents[docKey];
+    return (
+      <label className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-full ${attached ? 'bg-emerald-100 text-emerald-700' : accentBg}`}>
+            {attached ? <CheckCircle2 className="w-5 h-5" /> : iconEl}
+          </div>
+          <div>
+            <p className="font-bold text-sm">{title}</p>
+            {attached ? (
+              <p className="text-xs text-emerald-700 font-medium">{attached.fileName} ({attached.fileSizeKb} KB)</p>
+            ) : (
+              <p className="text-xs text-gray-500">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        <span className="inline-flex items-center px-3 py-1.5 rounded-md border border-input bg-background text-xs font-medium hover:bg-accent">
+          <Upload className="w-3.5 h-3.5 mr-1.5" /> {attached ? 'Replace' : 'Select File'}
+        </span>
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          className="hidden"
+          onChange={(e) => handleFileAttach(docKey, e)}
+        />
+      </label>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col font-sans">
@@ -193,6 +317,13 @@ export default function Apply() {
                  <div className="text-center mt-4 text-sm text-gray-500 font-medium">Compliance Checklist: {step === 1 ? 20 : step === 2 ? 40 : step === 3 ? 60 : step === 4 ? 80 : 100}% Complete</div>
                </div>
 
+               {formError && (
+                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-900 flex items-center justify-between">
+                   <span className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600 shrink-0" /> {formError}</span>
+                   <button type="button" onClick={() => setFormError(null)} className="text-xs underline ml-4">Dismiss</button>
+                 </div>
+               )}
+
                <Card className="border-none shadow-xl bg-white overflow-hidden">
                  <CardContent className="p-0">
                    <form onSubmit={handleSubmit}>
@@ -213,13 +344,13 @@ export default function Apply() {
                          </div>
                          <div className="space-y-2">
                            <Label htmlFor="yearFounded">Year Founded (if applicable)</Label>
-                           <Input id="yearFounded" type="number" placeholder="2026" />
+                           <Input id="yearFounded" type="number" placeholder="2026" value={yearFounded} onChange={(e) => setYearFounded(e.target.value)} />
                          </div>
                        </div>
                        
                        <div className="space-y-2">
                           <Label htmlFor="region">Operating Region</Label>
-                          <select id="region" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                          <select id="region" value={region} onChange={(e) => setRegion(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                             <option value="">Select Region</option>
                             <option value="Hhohho">Hhohho</option>
                             <option value="Manzini">Manzini</option>
@@ -231,11 +362,11 @@ export default function Apply() {
                        <div className="grid sm:grid-cols-2 gap-6">
                          <div className="space-y-2">
                            <Label htmlFor="contactName">Contact Person</Label>
-                           <Input id="contactName" required placeholder="John Doe" />
+                           <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required placeholder="John Doe" />
                          </div>
                          <div className="space-y-2">
                            <Label htmlFor="contactEmail">Official Email Address</Label>
-                           <Input id="contactEmail" type="email" required placeholder="admin@club.com" />
+                           <Input id="contactEmail" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} required placeholder="admin@club.com" />
                          </div>
                        </div>
                      </div>
@@ -254,44 +385,44 @@ export default function Apply() {
                            <h3 className="font-bold border-b pb-2">President</h3>
                            <div className="space-y-2">
                              <Label htmlFor="presidentName">Name</Label>
-                             <Input id="presidentName" required />
+                             <Input id="presidentName" value={presidentName} onChange={(e) => setPresidentName(e.target.value)} required />
                            </div>
                            <div className="space-y-2">
                              <Label htmlFor="presidentContact">Contact Details</Label>
-                             <Input id="presidentContact" required />
+                             <Input id="presidentContact" value={presidentContact} onChange={(e) => setPresidentContact(e.target.value)} required />
                            </div>
                          </div>
                          <div className="space-y-4 border p-4 rounded-xl">
                            <h3 className="font-bold border-b pb-2">CEO</h3>
                            <div className="space-y-2">
                              <Label htmlFor="ceoName">Name</Label>
-                             <Input id="ceoName" required />
+                             <Input id="ceoName" value={ceoName} onChange={(e) => setCeoName(e.target.value)} required />
                            </div>
                            <div className="space-y-2">
                              <Label htmlFor="ceoContact">Contact Details</Label>
-                             <Input id="ceoContact" required />
+                             <Input id="ceoContact" value={ceoContact} onChange={(e) => setCeoContact(e.target.value)} required />
                            </div>
                          </div>
                          <div className="space-y-4 border p-4 rounded-xl">
                            <h3 className="font-bold border-b pb-2">Head Coach</h3>
                            <div className="space-y-2">
                              <Label htmlFor="coachName">Name</Label>
-                             <Input id="coachName" required />
+                             <Input id="coachName" value={coachName} onChange={(e) => setCoachName(e.target.value)} required />
                            </div>
                            <div className="space-y-2">
                              <Label htmlFor="coachContact">Contact Details</Label>
-                             <Input id="coachContact" required />
+                             <Input id="coachContact" value={coachContact} onChange={(e) => setCoachContact(e.target.value)} required />
                            </div>
                          </div>
                          <div className="space-y-4 border p-4 rounded-xl">
                            <h3 className="font-bold border-b pb-2">Compliance Officer</h3>
                            <div className="space-y-2">
                              <Label htmlFor="complianceName">Name</Label>
-                             <Input id="complianceName" required />
+                             <Input id="complianceName" value={complianceName} onChange={(e) => setComplianceName(e.target.value)} required />
                            </div>
                            <div className="space-y-2">
                              <Label htmlFor="complianceContact">Contact Details</Label>
-                             <Input id="complianceContact" />
+                             <Input id="complianceContact" value={complianceContact} onChange={(e) => setComplianceContact(e.target.value)} />
                            </div>
                          </div>
                        </div>
@@ -308,64 +439,16 @@ export default function Apply() {
                        
                        <div className="space-y-2 mb-6">
                          <Label htmlFor="companyReg">Company Registration Number</Label>
-                         <Input id="companyReg" placeholder="e.g. 2026/12345/07" required />
+                         <Input id="companyReg" value={companyReg} onChange={(e) => setCompanyReg(e.target.value)} placeholder="e.g. 2026/12345/07" required />
                          <p className="text-xs text-gray-500 mt-1">Clubs must be registered commercial entities, not societies.</p>
                        </div>
 
                        <div className="space-y-4">
-                          <Label>Upload Official Documents</Label>
-                          
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-primary/10 rounded-full text-primary">
-                                   <FileText className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Certificate of Incorporation</p>
-                                   <p className="text-xs text-gray-500">PDF, up to 5MB</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
-
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-primary/10 rounded-full text-primary">
-                                   <FileText className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Proof of Capital / Bank Letter</p>
-                                   <p className="text-xs text-gray-500">Must show minimum E 1.5M operational capacity</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
-
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-primary/10 rounded-full text-primary">
-                                   <FileText className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Independent Financial Audit</p>
-                                   <p className="text-xs text-gray-500">Required for Financial Fair Play (FFP) Compliance</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
-                          
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-primary/10 rounded-full text-primary">
-                                   <FileText className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Directors ID / Passport Copies</p>
-                                   <p className="text-xs text-gray-500">For background vetting</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
+                          <Label>Attach Official Documents</Label>
+                          {renderUploadRow('incorporation', 'Certificate of Incorporation', 'PDF, up to 10MB')}
+                          {renderUploadRow('capital', 'Proof of Capital / Bank Letter', 'Must show minimum E 1.5M operational capacity')}
+                          {renderUploadRow('audit', 'Independent Financial Audit', 'Required for Financial Fair Play (FFP) Compliance')}
+                          {renderUploadRow('directorsId', 'Directors ID / Passport Copies', 'For background vetting')}
                        </div>
                      </div>
                    )}
@@ -380,54 +463,18 @@ export default function Apply() {
                        
                        <div className="bg-black text-white p-6 rounded-xl mb-6">
                           <p className="text-sm font-medium mb-2 uppercase tracking-wide text-gray-400">Core Requirement</p>
-                          <p className="text-sm leading-relaxed">To be eligible for the Major League, clubs must own at least 3 hectares of land designated for a training facility/stadium, AND demonstrate a commitment to Elite Youth Academies.</p>
+                          <p className="text-sm leading-relaxed">To be eligible for the Major League, clubs must own at least 3 hectares of land designated for a training facility/stadium, AND demonstrate a commitment to the 3-Tier Nursery &amp; Youth Academy structure.</p>
                        </div>
 
                        <div className="space-y-4">
-                          <Label>Upload Facilities & Academy Proof</Label>
-                          
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-secondary/20 rounded-full text-black">
-                                   <MapPin className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Title Deed / Land Ownership Proof</p>
-                                   <p className="text-xs text-gray-500">PDF Document</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
-
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-secondary/20 rounded-full text-black">
-                                   <Building className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Facility Development Plans</p>
-                                   <p className="text-xs text-gray-500">Architectural drawings or blueprints for Stadium & Clinic</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
-
-                          <div className="border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-between hover:bg-zinc-50 cursor-pointer transition-colors">
-                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-secondary/20 rounded-full text-black">
-                                   <FileText className="w-5 h-5" />
-                                </div>
-                                <div>
-                                   <p className="font-bold text-sm">Youth Academy Development Plan</p>
-                                   <p className="text-xs text-gray-500">Outlining U19, U15, and U11 structure and educational integration.</p>
-                                </div>
-                             </div>
-                             <Button type="button" variant="outline" size="sm"><Upload className="w-4 h-4 mr-2" /> Upload</Button>
-                          </div>
+                          <Label>Attach Facilities &amp; Academy Proof</Label>
+                          {renderUploadRow('titleDeed', 'Title Deed / Land Ownership Proof', 'PDF or Image Document', 'bg-secondary/20 text-black', <MapPin className="w-5 h-5" />)}
+                          {renderUploadRow('blueprints', 'Facility Development Plans', 'Architectural drawings or blueprints for Stadium & Clinic', 'bg-secondary/20 text-black', <Building className="w-5 h-5" />)}
+                          {renderUploadRow('academyPlan', 'Youth Academy Development Plan', 'Outlining Nursery (1–10), Academy (11–17 Boys & Girls), and Senior integration', 'bg-secondary/20 text-black', <FileText className="w-5 h-5" />)}
                           
                           <div className="space-y-2 mt-4">
-                            <Label htmlFor="facilityDetails">Facility Details & GPS Coordinates (Optional)</Label>
-                            <Textarea id="facilityDetails" placeholder="Provide link to Google Maps coordinates or describe current infrastructure status..." />
+                            <Label htmlFor="facilityDetails">Facility Details &amp; GPS Coordinates (Optional)</Label>
+                            <Textarea id="facilityDetails" value={facilityDetails} onChange={(e) => setFacilityDetails(e.target.value)} placeholder="Provide link to Google Maps coordinates or describe current infrastructure status..." />
                           </div>
                        </div>
                      </div>
@@ -438,7 +485,13 @@ export default function Apply() {
                      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                        <div className="flex items-center gap-3 mb-8 pb-4 border-b">
                          <CheckCircle2 className="w-6 h-6 text-primary" />
-                         <h2 className="text-2xl font-bold">5. Review & Declarations</h2>
+                         <h2 className="text-2xl font-bold">5. Review &amp; Declarations</h2>
+                       </div>
+
+                       <div className="p-4 bg-zinc-50 border rounded-xl text-sm space-y-1.5">
+                         <p><span className="font-bold">Club:</span> {clubName || 'Not specified'} ({region || 'Region not set'})</p>
+                         <p><span className="font-bold">Company Registration:</span> {companyReg || 'Pending entry'}</p>
+                         <p><span className="font-bold">Attached Documents:</span> {Object.keys(documents).length} of 7 files attached</p>
                        </div>
                        
                        <div className="bg-zinc-50 p-6 rounded-xl border border-zinc-200 mb-6">
@@ -477,7 +530,7 @@ export default function Apply() {
                        <ArrowLeft className="w-4 h-4 mr-2" /> Back
                      </Button>
                    ) : (
-                     <div></div> // Spacer
+                     <div></div>
                    )}
                    
                    {step < 5 ? (
@@ -485,8 +538,8 @@ export default function Apply() {
                        Next Step <ArrowRight className="w-4 h-4 ml-2" />
                      </Button>
                    ) : (
-                     <Button type="submit" className="bg-primary text-white px-8 hover:bg-primary/90 text-lg h-12">
-                       Submit to Licensing Engine
+                     <Button type="submit" disabled={isSubmitting} className="bg-primary text-white px-8 hover:bg-primary/90 text-lg h-12">
+                       {isSubmitting ? 'Submitting...' : 'Submit to Licensing Engine'}
                      </Button>
                    )}
                  </div>
@@ -499,10 +552,10 @@ export default function Apply() {
               <Card className="border-none shadow-xl bg-white overflow-hidden p-8 md:p-12 text-center max-w-2xl mx-auto">
                  <Search className="w-16 h-16 text-primary mx-auto mb-6" />
                  <h2 className="text-3xl font-bold mb-4">Application Status Tracker</h2>
-                 <p className="text-gray-600 mb-8">Enter your secure Application ID (ex: ends with 1, 2, or 3 for mock results) to check the real-time progress of your licensing review.</p>
+                 <p className="text-gray-600 mb-8">Enter your Application Reference ID or Registered Club Name to view the real-time status of your licensing review.</p>
                  <form onSubmit={handleCheckStatus} className="flex gap-2 max-w-md mx-auto mb-8">
                      <Input 
-                       placeholder="e.g. FFE-26-XXXX-1" 
+                       placeholder="Reference ID or Club Name" 
                        value={statusAppId} 
                        onChange={(e) => setStatusAppId(e.target.value)}
                        required
@@ -543,19 +596,29 @@ export default function Apply() {
                            </div>
                            <div className="text-center">
                              <h4 className="text-xl font-bold text-green-600 mb-2">Approved</h4>
-                             <p className="text-gray-600 text-sm">Congratulations! Your licensing package has been approved. You are now officially cleared for next steps in the FFE Major League.</p>
+                             <p className="text-gray-600 text-sm">Congratulations! Your licensing package has been approved. You are now officially cleared for next steps in the Indvundvundvwane Major Football League.</p>
+                           </div>
+                        </div>
+                      )}
+                      {appStatus === 'Rejected' && (
+                        <div className="flex flex-col items-center gap-4">
+                           <div className="p-4 bg-red-100 rounded-full">
+                              <AlertCircle className="text-red-600 w-8 h-8" />
+                           </div>
+                           <div className="text-center">
+                             <h4 className="text-xl font-bold text-red-600 mb-2">Application Rejected</h4>
+                             <p className="text-gray-600 text-sm">Your application did not meet the mandatory licensing criteria. Contact the compliance desk for detailed feedback.</p>
                            </div>
                         </div>
                       )}
                       {appStatus === 'Not Found' && (
                         <div className="flex flex-col items-center gap-4">
                            <div className="p-4 bg-red-100 rounded-full">
-                              <CheckCircle2 className="text-red-500 w-8 h-8 hidden" />
-                              <span className="font-bold text-red-600 text-2xl">X</span>
+                              <span className="font-bold text-red-600 text-2xl px-2">!</span>
                            </div>
                            <div className="text-center">
                              <h4 className="text-xl font-bold text-red-600 mb-2">Application Not Found</h4>
-                             <p className="text-gray-600 text-sm">We could not find an application with this ID. Please check your ID and try again, or contact compliance via email.</p>
+                             <p className="text-gray-600 text-sm">We could not find an application matching that ID or club name under your account.</p>
                            </div>
                         </div>
                       )}

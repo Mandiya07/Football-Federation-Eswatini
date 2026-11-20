@@ -1,6 +1,8 @@
 import { Navbar } from '@/components/Navbar';
 import { CheckCircle2 } from 'lucide-react';
 
+import { ConstitutionalPillars } from '@/components/ConstitutionalPillars';
+
 export default function About() {
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -10,18 +12,26 @@ export default function About() {
       <section className="pt-24 pb-16 bg-black text-white px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522778119026-d647f0596c20?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
-        <div className="container mx-auto max-w-4xl text-center relative z-10">
-          <h1 className="text-5xl font-bold tracking-tighter mb-6">About the Federation</h1>
-          <p className="text-xl text-gray-400 leading-relaxed">
-            A radical departure from traditional models. We are an exclusive federation of professional football clubs.
+        <div className="container mx-auto max-w-5xl text-center relative z-10">
+          <span className="inline-block py-1 px-3 rounded-full bg-secondary text-black font-black text-xs mb-4 uppercase tracking-wider">
+            Foundational Charter
+          </span>
+          <h1 className="text-5xl md:text-6xl font-bold tracking-tighter mb-6">About the Federation</h1>
+          <p className="text-xl text-gray-300 leading-relaxed max-w-3xl mx-auto">
+            A radical departure from traditional models. We are an exclusive federation of professional football clubs, governed by a strict constitution.
           </p>
         </div>
       </section>
 
       {/* Content */}
-      <section className="py-20 flex-grow">
-        <div className="container mx-auto px-4 max-w-4xl">
+      <section className="py-16 flex-grow">
+        <div className="container mx-auto px-4 max-w-6xl">
           
+          {/* Official 5 Pillars Section */}
+          <div className="mb-20">
+            <ConstitutionalPillars />
+          </div>
+
           <div className="prose prose-lg max-w-none prose-headings:text-black prose-p:text-gray-600">
             <h2 className="text-3xl font-bold mb-6">A Federation of Clubs</h2>
             <p className="text-lg leading-relaxed mb-8">
@@ -36,7 +46,7 @@ export default function About() {
               <h2 className="text-2xl font-bold mb-6 border-b border-zinc-200 pb-4">Vision & Mission</h2>
               <h3 className="text-xl font-bold text-black mb-3">Our Vision</h3>
               <p className="text-gray-700 mb-8">
-                To transform football in the Kingdom of Eswatini into a fully professional, economically viable, and club-driven ecosystem that competes on the ultimate continental stage.
+                To transform football in the Kingdom of Eswatini into a fully professional, economically viable, and club-driven ecosystem that puts Eswatini on the world map.
               </p>
               
               <h3 className="text-xl font-bold text-black mb-3">Our Mission</h3>

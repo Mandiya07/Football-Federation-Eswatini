@@ -2,8 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} { 
-      allow read, write: if false; 
+    match /{document=**} {
+      allow read, write: if false;
     }
 
     function isSignedIn() { return request.auth != null; }
@@ -20,38 +20,50 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+      return isSignedIn() &&
+             (
+               (request.auth.token.email == 'siphom.yati@gmail.com' && request.auth.token.email_verified == true) ||
+               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'])
+             );
+    }
+
+    match /test/connection {
+      allow get: if true;
+      allow list, write: if false;
     }
 
     match /users/{userId} {
-      allow get: if isSignedIn() && request.auth.uid == userId;
-      // List disabled
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if false;
       allow create: if isSignedIn() &&
+                    isValidId(userId) &&
                     request.auth.uid == userId &&
                     isValidUser(incoming()) &&
                     incoming().createdAt == request.time &&
                     incoming().updatedAt == request.time &&
-                    (incoming().role == 'user' || isAdmin() || request.auth.token.email == 'siphom.yati@gmail.com'); // Users can only create themselves as 'user' role by default
+                    (incoming().role == 'user' || isAdmin() || (request.auth.token.email == 'siphom.yati@gmail.com' && request.auth.token.email_verified == true));
       allow update: if isSignedIn() &&
+                    isValidId(userId) &&
                     request.auth.uid == userId &&
                     isValidUser(incoming()) &&
                     incoming().createdAt == existing().createdAt &&
                     incoming().updatedAt == request.time &&
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']) || isAdmin() || request.auth.token.email == 'siphom.yati@gmail.com');
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']) || isAdmin() || (request.auth.token.email == 'siphom.yati@gmail.com' && request.auth.token.email_verified == true));
     }
 
     function isValidApplication(data) {
       return data.keys().hasAll(['clubName', 'status', 'userId', 'createdAt', 'updatedAt']) &&
-             data.clubName is string && data.clubName.size() <= 200 &&
+             data.clubName is string && data.clubName.size() > 0 && data.clubName.size() <= 200 &&
              data.status in ['Pending', 'Under Review', 'Approved', 'Rejected'] &&
-             data.userId is string &&
+             data.userId is string && data.userId.size() <= 128 &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
     }
 
     match /applications/{applicationId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isAdmin(); // Admin can see all applications
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || (request.auth.token.email == 'siphom.yati@gmail.com' && request.auth.token.email_verified == true));
       allow create: if isSignedIn() &&
                     isValidId(applicationId) &&
                     isValidApplication(incoming()) &&
@@ -60,12 +72,93 @@ service cloud.firestore {
                     incoming().status == 'Pending' &&
                     incoming().userId == request.auth.uid;
       allow update: if isSignedIn() &&
+                    isValidId(applicationId) &&
                     isValidApplication(incoming()) &&
                     incoming().createdAt == existing().createdAt &&
                     incoming().updatedAt == request.time &&
                     ((existing().userId == request.auth.uid &&
                     incoming().userId == existing().userId &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['clubName', 'updatedAt'])) || isAdmin());
+    }
+
+    match /whistleblower_reports/{reportId} {
+      allow get: if isAdmin();
+      allow list: if isSignedIn() && request.auth.token.email == 'siphom.yati@gmail.com' && request.auth.token.email_verified == true;
+      allow create: if isValidId(reportId) &&
+                    incoming().keys().hasAll(['type', 'details', 'reporterId', 'createdAt']) &&
+                    incoming().keys().hasOnly(['type', 'details', 'reporterId', 'createdAt']) &&
+                    incoming().type is string && incoming().type.size() <= 150 &&
+                    incoming().details is string && incoming().details.size() > 0 && incoming().details.size() <= 5000 &&
+                    incoming().reporterId is string && incoming().reporterId.size() <= 128 &&
+                    incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['homeClubId', 'awayClubId', 'homeClubName', 'awayClubName', 'homeGoals', 'awayGoals', 'matchDate', 'matchday', 'venue', 'recordedBy', 'createdAt']) &&
+             data.keys().hasOnly(['homeClubId', 'awayClubId', 'homeClubName', 'awayClubName', 'homeGoals', 'awayGoals', 'matchDate', 'matchday', 'venue', 'recordedBy', 'createdAt']) &&
+             data.homeClubId is int && data.homeClubId > 0 &&
+             data.awayClubId is int && data.awayClubId > 0 &&
+             data.homeClubId != data.awayClubId &&
+             data.homeClubName is string && data.homeClubName.size() > 0 && data.homeClubName.size() <= 200 &&
+             data.awayClubName is string && data.awayClubName.size() > 0 && data.awayClubName.size() <= 200 &&
+             data.homeGoals is int && data.homeGoals >= 0 && data.homeGoals <= 99 &&
+             data.awayGoals is int && data.awayGoals >= 0 && data.awayGoals <= 99 &&
+             data.matchDate is string && data.matchDate.size() >= 8 && data.matchDate.size() <= 32 &&
+             data.matchday is int && data.matchday >= 1 && data.matchday <= 50 &&
+             data.venue is string && data.venue.size() <= 200 &&
+             data.recordedBy is string && data.recordedBy.size() <= 128 &&
+             data.createdAt is timestamp;
+    }
+
+    match /matches/{matchId} {
+      allow get, list: if true;
+      allow create: if isAdmin() &&
+                    isValidId(matchId) &&
+                    isValidMatch(incoming()) &&
+                    incoming().recordedBy == request.auth.uid &&
+                    incoming().createdAt == request.time;
+      allow update: if isAdmin() &&
+                    isValidId(matchId) &&
+                    isValidMatch(incoming()) &&
+                    incoming().recordedBy == existing().recordedBy &&
+                    incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(matchId);
+    }
+
+    function isValidFixture(data) {
+      return data.keys().hasAll(['homeClubId', 'awayClubId', 'homeClubName', 'awayClubName', 'matchDate', 'kickoffTime', 'matchday', 'venue', 'status', 'scheduledBy', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['homeClubId', 'awayClubId', 'homeClubName', 'awayClubName', 'matchDate', 'kickoffTime', 'matchday', 'venue', 'status', 'scheduledBy', 'createdAt', 'updatedAt']) &&
+             data.homeClubId is int && data.homeClubId > 0 &&
+             data.awayClubId is int && data.awayClubId > 0 &&
+             data.homeClubId != data.awayClubId &&
+             data.homeClubName is string && data.homeClubName.size() > 0 && data.homeClubName.size() <= 200 &&
+             data.awayClubName is string && data.awayClubName.size() > 0 && data.awayClubName.size() <= 200 &&
+             data.matchDate is string && data.matchDate.size() >= 8 && data.matchDate.size() <= 32 &&
+             data.kickoffTime is string && data.kickoffTime.size() >= 4 && data.kickoffTime.size() <= 16 &&
+             data.matchday is int && data.matchday >= 1 && data.matchday <= 50 &&
+             data.venue is string && data.venue.size() > 0 && data.venue.size() <= 200 &&
+             data.status in ['Scheduled', 'Postponed', 'Completed'] &&
+             data.scheduledBy is string && data.scheduledBy.size() <= 128 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    match /fixtures/{fixtureId} {
+      allow get, list: if true;
+      allow create: if isAdmin() &&
+                    isValidId(fixtureId) &&
+                    isValidFixture(incoming()) &&
+                    incoming().scheduledBy == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+      allow update: if isAdmin() &&
+                    isValidId(fixtureId) &&
+                    isValidFixture(incoming()) &&
+                    incoming().scheduledBy == existing().scheduledBy &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(fixtureId);
     }
   }
 }

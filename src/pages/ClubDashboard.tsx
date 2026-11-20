@@ -24,16 +24,23 @@ export function ClubDashboard() {
     
     // Listen to user's club applications
     const q = query(collection(db, 'applications'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        // Just take the first one for the prototype
-        const doc = snapshot.docs[0];
-        setApplication({ id: doc.id, ...doc.data() });
-      } else {
-        setApplication(null);
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          // Just take the first one for the prototype
+          const doc = snapshot.docs[0];
+          setApplication({ id: doc.id, ...doc.data() });
+        } else {
+          setApplication(null);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        console.warn('Could not load club applications from Firestore:', err);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
 
     return unsubscribe;
   }, [user]);

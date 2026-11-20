@@ -27,28 +27,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userRef = doc(db, 'users', user.uid);
         
         unsubscribeDoc = onSnapshot(userRef, async (userSnap) => {
-          if (userSnap.exists()) {
-            const currentRole = userSnap.data().role;
-            if (user.email === 'siphom.yati@gmail.com' && currentRole !== 'super_admin') {
-              // Automatically upgrade this specific user to super_admin
-              await setDoc(userRef, { role: 'super_admin', updatedAt: serverTimestamp() }, { merge: true });
+          try {
+            if (userSnap.exists()) {
+              const currentRole = userSnap.data().role;
+              if (user.email === 'siphom.yati@gmail.com' && currentRole !== 'super_admin') {
+                // Automatically upgrade this specific user to super_admin
+                await setDoc(userRef, { role: 'super_admin', updatedAt: serverTimestamp() }, { merge: true }).catch(err => {
+                  console.warn("Could not set super_admin role in Firestore", err);
+                });
+                setRole('super_admin');
+                setRoleLoading(false);
+              } else {
+                setRole(currentRole || 'user');
+                setRoleLoading(false);
+              }
             } else {
-              setRole(currentRole || 'user');
+              // Create the user record
+              const initialRole = user.email === 'siphom.yati@gmail.com' ? 'super_admin' : 'user';
+              setRole(initialRole);
+              await setDoc(userRef, {
+                email: user.email,
+                role: initialRole,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              }).catch(err => {
+                console.warn("Could not create user document in Firestore", err);
+              });
               setRoleLoading(false);
             }
-          } else {
-            // Create the user
-            const initialRole = user.email === 'siphom.yati@gmail.com' ? 'super_admin' : 'user';
-            await setDoc(userRef, {
-              email: user.email,
-              role: initialRole, // Default role or super_admin
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-            // The snapshot listener will fire again once created
+          } catch (err) {
+            console.warn("Error processing user document snapshot", err);
+            setRole(user.email === 'siphom.yati@gmail.com' ? 'super_admin' : 'user');
+            setRoleLoading(false);
           }
         }, (err) => {
-          console.error("Error listening to user document", err);
+          console.warn("Firestore snapshot listener notice (possibly offline or permission lock)", err);
+          setRole(user.email === 'siphom.yati@gmail.com' ? 'super_admin' : 'user');
           setRoleLoading(false);
         });
       } else {

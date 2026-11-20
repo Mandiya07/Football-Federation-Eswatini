@@ -17,29 +17,38 @@ import Apply from './pages/Apply';
 import Clubs from './pages/Clubs';
 import ClubProfile from './pages/ClubProfile';
 import Structure from './pages/Structure';
+import Logs from './pages/Logs';
+import FixturesPage from './pages/FixturesPage';
 import { AuthProvider } from './contexts/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home/>} />
-          <Route path="/about" element={<About/>} />
-          <Route path="/structure" element={<Structure/>} />
-          <Route path="/leagues" element={<Leagues/>} />
-          <Route path="/membership" element={<Membership/>} />
-          <Route path="/governance" element={<Governance/>} />
-          <Route path="/investment" element={<Investment/>} />
-          <Route path="/news" element={<News/>} />
-          <Route path="/contact" element={<Contact/>} />
-          <Route path="/dashboard" element={<Dashboard/>} />
-          <Route path="/academy" element={<Academy/>} />
-          <Route path="/apply" element={<Apply/>} />
-          <Route path="/clubs" element={<Clubs/>} />
-          <Route path="/clubs/:id" element={<ClubProfile/>} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home/>} />
+            <Route path="/about" element={<About/>} />
+            <Route path="/structure" element={<Structure/>} />
+            <Route path="/leagues" element={<Leagues/>} />
+            <Route path="/logs" element={<Logs/>} />
+            <Route path="/standings" element={<Logs/>} />
+            <Route path="/fixtures" element={<FixturesPage/>} />
+            <Route path="/membership" element={<Membership/>} />
+            <Route path="/governance" element={<Governance/>} />
+            <Route path="/investment" element={<Investment/>} />
+            <Route path="/news" element={<News/>} />
+            <Route path="/contact" element={<Contact/>} />
+            <Route path="/dashboard" element={<Dashboard/>} />
+            <Route path="/academy" element={<Academy/>} />
+            <Route path="/apply" element={<Apply/>} />
+            <Route path="/clubs" element={<Clubs/>} />
+            <Route path="/clubs/:id" element={<ClubProfile/>} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
+

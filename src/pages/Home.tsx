@@ -71,67 +71,135 @@ export default function Home() {
       <section className="py-24 bg-zinc-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16 max-w-3xl mx-auto">
-            <h2 className="text-4xl font-bold tracking-tight mb-4 text-black">A Two-Tier Professional Ecosystem</h2>
+            <span className="inline-block py-1 px-3 rounded-full bg-secondary text-black font-black text-xs mb-3 uppercase tracking-wider">
+              Constitutional Ecosystem
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-4 text-black">A Two-Tier Professional Ecosystem</h2>
             <p className="text-lg text-gray-600">
-              Unlike traditional models, the FFE is structured to maximize commercial value, guarantee professional standards, and ensure true club ownership.
+              Operating outside FIFA without national team obligations. Owned 100% by the clubs, anchored by the Indvundvundvwane Major Football League company.
             </p>
           </div>
           
-          <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            <Card className="border-2 border-secondary overflow-hidden shadow-xl">
-              <div className="bg-secondary p-4 text-center">
-                <h3 className="text-2xl font-bold text-black uppercase tracking-widest">Major League</h3>
+          <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto mb-16">
+            <Card className="border-2 border-secondary overflow-hidden shadow-xl bg-white">
+              <div className="bg-secondary p-5 text-center">
+                <h3 className="text-xl md:text-2xl font-black text-black uppercase tracking-wider">
+                  Indvundvundvwane Major Football League
+                </h3>
+                <span className="text-xs font-bold text-zinc-800 uppercase tracking-widest">
+                  Tier 1 • Standalone Private Company
+                </span>
               </div>
-              <CardContent className="p-10 bg-white">
-                <Trophy className="w-12 h-12 text-secondary mb-6" />
-                <h4 className="text-2xl font-bold mb-4">The Flagship Tier</h4>
-                <p className="text-gray-600 mb-6 text-lg">
-                  An independent company owned equally by the top 16 qualifying clubs. It operates autonomously while complying strictly with FFE governance rules.
+              <CardContent className="p-8 md:p-10 bg-white">
+                <div className="flex items-center gap-4 mb-6">
+                  <img
+                    src="/assets/aistudio/indvundvundvwane_major_league_logo_a9d0b495.jpg"
+                    alt="Indvundvundvwane Major League Official Logo"
+                    className="w-16 h-16 object-contain rounded-xl bg-white p-1 border border-zinc-200 shadow-sm"
+                  />
+                  <h4 className="text-2xl font-bold">The Flagship Tier</h4>
+                </div>
+                <p className="text-gray-600 mb-6 text-base leading-relaxed">
+                  A private corporate entity owned equally by the 16 participating clubs. Independent commercial operations under FFE jurisdiction, with full yearly fixtures released at the end of the previous season.
                 </p>
-                <ul className="space-y-4">
-                  <li className="flex gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="text-primary w-6 h-6 flex-shrink-0" />
-                    Strictly 16 shareholder clubs
+                <ul className="space-y-3">
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-primary w-5 h-5 flex-shrink-0" />
+                    Strictly 16 shareholder clubs (shares transfer on promotion/relegation)
                   </li>
-                  <li className="flex gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="text-primary w-6 h-6 flex-shrink-0" />
-                    Independent commercial operation
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-primary w-5 h-5 flex-shrink-0" />
+                    Elected Board (5–7 members) & dedicated executive staff
                   </li>
-                  <li className="flex gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="text-primary w-6 h-6 flex-shrink-0" />
-                    Highest standards of professionalism
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-primary w-5 h-5 flex-shrink-0" />
+                    5-Year domestic status for Mozambique, SA, Lesotho, Namibia, Botswana, Zimbabwe
+                  </li>
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-primary w-5 h-5 flex-shrink-0" />
+                    Independent from FIFA; zero national team disruptions
                   </li>
                 </ul>
+                <div className="mt-6 pt-5 border-t border-zinc-100 flex flex-col sm:flex-row gap-2">
+                  <Button variant="outline" className="flex-1 border-zinc-300 text-black hover:bg-zinc-50 font-bold text-xs" asChild>
+                    <Link to="/logs">
+                      League Logs &amp; Table <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  <Button variant="outline" className="flex-1 border-zinc-300 text-black hover:bg-zinc-50 font-bold text-xs" asChild>
+                    <Link to="/fixtures">
+                      Match Fixtures <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="border border-gray-200 overflow-hidden shadow-lg">
-              <div className="bg-black p-4 text-center">
-                <h3 className="text-2xl font-bold text-white uppercase tracking-widest">Federation League</h3>
+            <Card className="border border-gray-200 overflow-hidden shadow-lg bg-white">
+              <div className="bg-black p-5 text-center text-white">
+                <h3 className="text-xl md:text-2xl font-black uppercase tracking-wider">
+                  Federation League & Women's League
+                </h3>
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Tier 2 & Dedicated Women's Pro League
+                </span>
               </div>
-              <CardContent className="p-10 bg-white">
+              <CardContent className="p-8 md:p-10 bg-white">
                 <Building2 className="w-12 h-12 text-black mb-6" />
                 <h4 className="text-2xl font-bold mb-4">The Multi-Division Pathway</h4>
-                <p className="text-gray-600 mb-6 text-lg">
-                  For all other qualifying professional clubs. Governed with the exact same rigorous standards, providing a direct pathway to the Major League.
+                <p className="text-gray-600 mb-6 text-base leading-relaxed">
+                  For all qualifying professional clubs and women's teams. Governed under identical infrastructure and anti-corruption requirements, providing pure merit-based promotion.
                 </p>
-                <ul className="space-y-4">
-                  <li className="flex gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="text-black w-6 h-6 flex-shrink-0" />
-                    Multi-division hierarchical system
+                <ul className="space-y-3">
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-black w-5 h-5 flex-shrink-0" />
+                    Direct promotion/relegation inheriting Major League company equity
                   </li>
-                  <li className="flex gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="text-black w-6 h-6 flex-shrink-0" />
-                    Direct promotion/relegation to Major League
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-black w-5 h-5 flex-shrink-0" />
+                    Dedicated Women's Football League with professional backing
                   </li>
-                  <li className="flex gap-3 text-gray-700 font-medium">
-                    <CheckCircle2 className="text-black w-6 h-6 flex-shrink-0" />
-                    Mandatory infrastructure requirements
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-black w-5 h-5 flex-shrink-0" />
+                    Mandatory 3-tier youth pathway: Nursery (1–10) & Academies (11–17)
+                  </li>
+                  <li className="flex gap-3 text-gray-700 font-medium text-sm">
+                    <CheckCircle2 className="text-black w-5 h-5 flex-shrink-0" />
+                    Sole voting franchise in the FFE strictly for member clubs
                   </li>
                 </ul>
               </CardContent>
             </Card>
           </div>
+
+          {/* Constitutional Pillars Preview */}
+          <div className="max-w-6xl mx-auto bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-white p-8 md:p-12 rounded-3xl border border-white/10 shadow-2xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+              <div className="max-w-2xl">
+                <span className="px-3 py-1 rounded-full bg-secondary text-black text-xs font-black uppercase tracking-wider mb-4 inline-block">
+                  Foundational Charter
+                </span>
+                <h3 className="text-3xl md:text-4xl font-black text-white mb-4">
+                  The 5 Constitutional Pillars of FFE
+                </h3>
+                <p className="text-gray-300 text-base leading-relaxed mb-4">
+                  Discover how the FOOTBALL FEDERATION ESWATINI and the INDVUNDVUNDVWANE MAJOR FOOTBALL LEAGUE ESWATINI are constituted: No association membership, 5 honorary founders with zero voting rights, independent eligibility test to eliminate nepotism, 16-club private company league, and a 3-tier nursery-to-senior development pyramid.
+                </p>
+                <p className="text-secondary font-black text-lg italic">
+                  "Maswati, we want to put you on the world map. FOR ONCE,"
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
+                <Button size="lg" className="bg-secondary text-black hover:bg-secondary/90 font-bold" asChild>
+                  <Link to="/about">Explore 5 Pillars <ArrowRight className="ml-2 w-5 h-5" /></Link>
+                </Button>
+                <Button size="lg" variant="outline" className="text-white border-white/20 hover:bg-white/10" asChild>
+                  <Link to="/structure">View Structure</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 

@@ -5,8 +5,8 @@
       "description": "A user profile record.",
       "type": "object",
       "properties": {
-        "email": { "type": "string" },
-        "name": { "type": "string" },
+        "email": { "type": "string", "maxLength": 200 },
+        "name": { "type": "string", "maxLength": 150 },
         "role": { "type": "string", "enum": ["super_admin", "admin", "club_admin", "user"] },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
@@ -15,16 +15,73 @@
     },
     "Application": {
       "title": "Application",
-      "description": "A club licensing application record.",
+      "description": "A club licensing application record submitted to the Digital Licensing Engine.",
       "type": "object",
       "properties": {
-        "clubName": { "type": "string" },
+        "clubName": { "type": "string", "maxLength": 200 },
+        "region": { "type": "string", "maxLength": 64 },
+        "yearFounded": { "type": "string", "maxLength": 10 },
+        "contactName": { "type": "string", "maxLength": 150 },
+        "contactEmail": { "type": "string", "maxLength": 200 },
+        "companyReg": { "type": "string", "maxLength": 100 },
+        "facilityDetails": { "type": "string", "maxLength": 2000 },
         "status": { "type": "string", "enum": ["Pending", "Under Review", "Approved", "Rejected"] },
-        "userId": { "type": "string", "description": "The UID of the user who submitted the application" },
+        "userId": { "type": "string", "description": "The UID of the user who submitted the application", "maxLength": 128 },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
       "required": ["clubName", "status", "userId", "createdAt", "updatedAt"]
+    },
+    "WhistleblowerReport": {
+      "title": "WhistleblowerReport",
+      "description": "Confidential misconduct or integrity breach report submitted to the Independent Judiciary Panel.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "maxLength": 150 },
+        "details": { "type": "string", "maxLength": 5000 },
+        "reporterId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["type", "details", "reporterId", "createdAt"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "An official Indvundvundvwane Major League match score recorded by FFE administrators.",
+      "type": "object",
+      "properties": {
+        "homeClubId": { "type": "integer" },
+        "awayClubId": { "type": "integer" },
+        "homeClubName": { "type": "string", "maxLength": 200 },
+        "awayClubName": { "type": "string", "maxLength": 200 },
+        "homeGoals": { "type": "integer" },
+        "awayGoals": { "type": "integer" },
+        "matchDate": { "type": "string", "maxLength": 32 },
+        "matchday": { "type": "integer" },
+        "venue": { "type": "string", "maxLength": 200 },
+        "recordedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["homeClubId", "awayClubId", "homeClubName", "awayClubName", "homeGoals", "awayGoals", "matchDate", "matchday", "venue", "recordedBy", "createdAt"]
+    },
+    "Fixture": {
+      "title": "Fixture",
+      "description": "An upcoming league match scheduled by FFE administrators between two registered clubs.",
+      "type": "object",
+      "properties": {
+        "homeClubId": { "type": "integer" },
+        "awayClubId": { "type": "integer" },
+        "homeClubName": { "type": "string", "maxLength": 200 },
+        "awayClubName": { "type": "string", "maxLength": 200 },
+        "matchDate": { "type": "string", "maxLength": 32 },
+        "kickoffTime": { "type": "string", "maxLength": 16 },
+        "matchday": { "type": "integer" },
+        "venue": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Scheduled", "Postponed", "Completed"] },
+        "scheduledBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["homeClubId", "awayClubId", "homeClubName", "awayClubName", "matchDate", "kickoffTime", "matchday", "venue", "status", "scheduledBy", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -35,6 +92,18 @@
     "applications/{applicationId}": {
       "schema": { "$ref": "#/entities/Application" },
       "description": "Club licensing applications."
+    },
+    "whistleblower_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/WhistleblowerReport" },
+      "description": "Confidential misconduct reports reviewed exclusively by FFE administrators."
+    },
+    "matches/{matchId}": {
+      "schema": { "$ref": "#/entities/Match" },
+      "description": "Official league match scores recorded by admins and displayed in live League Standings."
+    },
+    "fixtures/{fixtureId}": {
+      "schema": { "$ref": "#/entities/Fixture" },
+      "description": "Scheduled upcoming league fixtures managed by FFE administrators and visible on the public calendar."
     }
   }
 }

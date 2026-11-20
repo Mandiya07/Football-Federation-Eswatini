@@ -3,7 +3,10 @@
   "appId": "1:599154094929:web:769113d4660bdded61d970",
   "apiKey": "AIzaSyCAmYSWXB_DzeSSrWfYhWP6bUFRWLr42oc",
   "authDomain": "football-federation-eswatini.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-403e6d65-98f9-46da-bf5e-a85401e645dc",
   "storageBucket": "football-federation-eswatini.firebasestorage.app",
   "messagingSenderId": "599154094929",
-  "measurementId": ""
+  "measurementId": "",
+  "oAuthClientId": "599154094929-1i28fm110gg1l427f1r3raeacc9q56d2.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

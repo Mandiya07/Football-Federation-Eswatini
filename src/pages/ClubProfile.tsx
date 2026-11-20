@@ -32,7 +32,8 @@ import {
   ChevronDown,
   ChevronUp,
   Share2,
-  MessageCircle
+  MessageCircle,
+  Shirt
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -73,86 +74,62 @@ export default function ClubProfile() {
     { name: "Mandla Gwebu", position: "Defender", number: 20, apps: 12, goals: 2, assists: 1, yellow: 2, red: 0 },
   ];
 
-  const recentMatches = [
-    { 
-      opponent: "Royal Leopards", 
-      result: "W", 
-      score: "2-0", 
-      date: "April 24, 2026", 
-      type: "League",
-      stats: {
-        possession: "54%",
-        shotsOnTarget: "8/14",
-        fouls: "12",
-        corners: "6",
-        performers: [
-          { name: "Sifiso Zwane", rating: 8.7, contribution: "2 goals, 1 assist" },
-          { name: "Vusi Mabuza", rating: 7.9, contribution: "92% pass accuracy" },
-          { name: "Sibusiso Dlamini", rating: 7.5, contribution: "3 clean saves" }
-        ]
-      }
-    },
-    { 
-      opponent: "Mbabane Highlanders", 
-      result: "D", 
-      score: "1-1", 
-      date: "April 18, 2026", 
-      type: "League",
-      stats: {
-        possession: "48%",
-        shotsOnTarget: "4/9",
-        fouls: "16",
-        corners: "4",
-        performers: [
-          { name: "Bongani Nxumalo", rating: 7.6, contribution: "1 goal" },
-          { name: "Mlungisi Ndlovu", rating: 7.2, contribution: "5 interceptions" }
-        ]
-      }
-    },
-    { 
-      opponent: "Green Mamba", 
-      result: "L", 
-      score: "0-1", 
-      date: "April 10, 2026", 
-      type: "Cup",
-      stats: {
-        possession: "56%",
-        shotsOnTarget: "3/18",
-        fouls: "10",
-        corners: "9",
-        performers: [
-          { name: "Thabo Kunene", rating: 7.1, contribution: "6 chances created" },
-          { name: "Vusi Mabuza", rating: 6.9, contribution: "8 ball recoveries" }
-        ]
-      }
-    },
-    { 
-      opponent: "Young Buffaloes", 
-      result: "W", 
-      score: "3-1", 
-      date: "April 2, 2026", 
-      type: "League",
-      stats: {
-        possession: "51%",
-        shotsOnTarget: "9/12",
-        fouls: "14",
-        corners: "5",
-        performers: [
-          { name: "Sifiso Zwane", rating: 9.1, contribution: "Hat-trick" },
-          { name: "Thabo Kunene", rating: 8.4, contribution: "2 assists" }
-        ]
-      }
-    },
-  ];
+  // Live match history loaded from official recorded fixtures for this club
+  const [clubMatches, setClubMatches] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot }) => {
+      import('@/lib/firebase').then(({ db }) => {
+        const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const matches: any[] = [];
+            snapshot.docs.forEach((docSnap) => {
+              const data = docSnap.data();
+              const homeId = Number(data.homeClubId);
+              const awayId = Number(data.awayClubId);
+              const homeName = String(data.homeClubName || '');
+              const awayName = String(data.awayClubName || '');
+
+              const isHome = homeId === club.id || homeName.toLowerCase() === club.name.toLowerCase();
+              const isAway = awayId === club.id || awayName.toLowerCase() === club.name.toLowerCase();
+
+              if (isHome || isAway) {
+                const myGoals = isHome ? Number(data.homeGoals || 0) : Number(data.awayGoals || 0);
+                const oppGoals = isHome ? Number(data.awayGoals || 0) : Number(data.homeGoals || 0);
+                const result = myGoals > oppGoals ? 'W' : myGoals < oppGoals ? 'L' : 'D';
+                const opponent = isHome ? awayName : homeName;
+
+                matches.push({
+                  id: docSnap.id,
+                  opponent,
+                  result,
+                  score: `${myGoals}-${oppGoals}`,
+                  date: String(data.matchDate || ''),
+                  type: `Matchday ${data.matchday || 1}`,
+                  venue: String(data.venue || ''),
+                });
+              }
+            });
+            setClubMatches(matches);
+          },
+          (err) => {
+            console.warn('Notice: Club matches subscription', err);
+          }
+        );
+        return () => unsubscribe();
+      });
+    });
+  }, [club.id, club.name]);
 
   const [expandedMatch, setExpandedMatch] = React.useState<number | null>(null);
-  const [typeFilter, setTypeFilter] = React.useState('All');
   const [resultFilter, setResultFilter] = React.useState('All');
+  const [shareCopied, setShareCopied] = React.useState(false);
 
-  const filteredMatches = recentMatches.filter(match => {
-    const typeMatch = typeFilter === 'All' || match.type === typeFilter;
+  const filteredMatches = clubMatches.filter((match) => {
     const resultMatch = resultFilter === 'All' || match.result === resultFilter;
-    return typeMatch && resultMatch;
+    return resultMatch;
   });
 
   const photos = [
@@ -214,13 +191,18 @@ export default function ClubProfile() {
                     title: club.name,
                     text: `Check out ${club.name} on the Football Federation Eswatini platform!`,
                     url: url
-                  });
+                  }).catch(() => {});
                 } else {
                   navigator.clipboard.writeText(url);
-                  alert('Link copied to clipboard!');
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
                 }
-              }} size="icon" variant="outline" className="rounded-full bg-white/10 border-white/20 hover:bg-white/20 text-white transition-all hover:scale-110" title="Share via Device">
-                <Share2 className="w-4 h-4" />
+              }} size={shareCopied ? "sm" : "icon"} variant="outline" className="rounded-full bg-white/10 border-white/20 hover:bg-white/20 text-white transition-all hover:scale-105" title="Share via Device">
+                {shareCopied ? (
+                  <span className="text-xs font-bold px-2 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Copied</span>
+                ) : (
+                  <Share2 className="w-4 h-4" />
+                )}
               </Button>
               <Button asChild size="icon" variant="outline" className="rounded-full bg-white/10 border-white/20 hover:bg-blue-500 hover:border-blue-500 text-white transition-all hover:scale-110" title="Share on Twitter">
                 <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out ' + club.name + ' on Football Federation Eswatini!')}&url=${encodeURIComponent(window.location.href)}`} target="_blank" rel="noopener noreferrer">
@@ -474,6 +456,255 @@ export default function ClubProfile() {
               </Card>
             )}
 
+            {/* Kits & Colors Section */}
+            {(club as any).kits && (
+              <Card className="border-t-4 border-t-blue-600 shadow-md">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-2xl flex items-center gap-2">
+                        <Shirt className="w-6 h-6 text-blue-600" /> Official Match Kits & Colors
+                      </CardTitle>
+                      <CardDescription className="text-base mt-2">
+                        Official Home and Away strips registered with the Federation.
+                      </CardDescription>
+                    </div>
+                    {club.name === "Qomintaba Warriors FC" && (
+                      <Badge className="bg-black text-white px-3 py-1 text-xs font-bold">
+                        Est. 1970 • Baick Mashuba
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {club.name === "Qomintaba Warriors FC" && (
+                    <div className="rounded-xl overflow-hidden mb-6 border shadow-md bg-zinc-950 p-3 text-center">
+                      <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation & Crest</p>
+                      <img 
+                        src="/assets/aistudio/Qomintaba_Warriors_FC_cd502241.jpg" 
+                        alt="Qomintaba Warriors FC Kits" 
+                        className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                      />
+                    </div>
+                  )}
+                  {club.name === "Mbabane United FC" && (
+                    <div className="grid md:grid-cols-3 gap-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-2 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Home Strip (Brown &amp; Gold)</p>
+                        <img 
+                          src="/assets/aistudio/mbabane_united_kit_2ca7597c.jpg" 
+                          alt="Mbabane United Home Kit" 
+                          className="w-full h-auto max-h-[300px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-2 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">First Away Strip (White &amp; Gold)</p>
+                        <img 
+                          src="/assets/aistudio/mbabane_united_kit1_92ef9c51.jpg" 
+                          alt="Mbabane United Away Kit 1" 
+                          className="w-full h-auto max-h-[300px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-2 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Second Away Strip (Gold &amp; Brown)</p>
+                        <img 
+                          src="/assets/aistudio/mbabane_united_kit2_6059d53e.jpg" 
+                          alt="Mbabane United Away Kit 2" 
+                          className="w-full h-auto max-h-[300px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Nhlangano Seven Stars FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Club Crest ("Soccer at Heart")</p>
+                        <img 
+                          src="/assets/aistudio/nhlangano_seven_sars_fc_logo_4e77c008.jpg" 
+                          alt="Nhlangano Seven Stars FC Logo" 
+                          className="w-48 h-48 object-contain rounded-full mx-auto border-2 border-orange-500/40 shadow-lg bg-black"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation (Home Orange, Away Black/Pink, Third White/Orange)</p>
+                        <img 
+                          src="/assets/aistudio/nhlangano_seven_stars_fc_kit_af398824.jpg" 
+                          alt="Nhlangano Seven Stars FC Kits" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Mpolonjeni Young Zebras F.C." && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Club Crest (Est. 1984)</p>
+                        <img 
+                          src="/assets/aistudio/mpolonjeni_young_zebras_fc_logo_7f0dad02.jpg" 
+                          alt="Mpolonjeni Young Zebras F.C. Logo" 
+                          className="w-48 h-48 object-contain rounded-full mx-auto border-2 border-white/40 shadow-lg bg-black"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation (Home B&amp;W, Away Blue/Gold, Third Gold/Black)</p>
+                        <img 
+                          src="/assets/aistudio/mpolonjeni_young_zebras_fc_kit_0c3695d7.jpg" 
+                          alt="Mpolonjeni Young Zebras F.C. Kits" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Velezizweni FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation &amp; Crest ("Rise, United, Conquer.")</p>
+                        <img 
+                          src="/assets/aistudio/velezizweni_fc_6c543c8e.jpg" 
+                          alt="Velezizweni FC Kits and Crest" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Ngcoseni United FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Club Crest (Est. 1990 • "Time Will Tell")</p>
+                        <img 
+                          src="/assets/aistudio/ngcoseni_united_fc_logo_679143a7.jpg" 
+                          alt="Ngcoseni United FC Logo" 
+                          className="w-48 h-48 object-contain rounded-full mx-auto border-2 border-blue-500/40 shadow-lg bg-black"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation (Home Green, Away White/Green, Third Blue)</p>
+                        <img 
+                          src="/assets/aistudio/ngcoseni_united_kit_fd6c517e.jpg" 
+                          alt="Ngcoseni United FC Kits" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Mkhiweni Eagles FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation &amp; Crest ("The Executives" • Play • Compete • Excel)</p>
+                        <img 
+                          src="/assets/aistudio/mkhiweni_eagles_fc_debcb9cc.jpg" 
+                          alt="Mkhiweni Eagles FC Kits and Crest" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Maguga Young Stars FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation &amp; Crest (Home Sky Blue, Away Navy, Second Away Green/Gold)</p>
+                        <img 
+                          src="/assets/aistudio/maguga_young_stars_fc_a71e96f2.jpg" 
+                          alt="Maguga Young Stars FC Kits and Crest" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Lubombo United FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Club Crest ("One Region. One Pride. One Club.")</p>
+                        <img 
+                          src="/assets/aistudio/lubombo_united_fc_logo_7623f27f.jpg" 
+                          alt="Lubombo United FC Logo" 
+                          className="w-48 h-48 object-contain rounded-full mx-auto border-2 border-red-500/40 shadow-lg bg-black"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation ("Lubovu Lumankelenkele" • Home Red, Away White, GK Black/Lime)</p>
+                        <img 
+                          src="/assets/aistudio/lubombo_united_kit_a5751361.jpg" 
+                          alt="Lubombo United FC Kits" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Khuphuka Ben United FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Club Crest (Hornbill Emblem)</p>
+                        <img 
+                          src="/assets/aistudio/khuphuka_ben_united_fc_logo_14821ed5.jpg" 
+                          alt="Khuphuka Ben United FC Logo" 
+                          className="w-48 h-48 object-contain rounded-full mx-auto border-2 border-red-500/40 shadow-lg bg-black"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation (Home Red/White, Away White/Red, Second Away Blue/Red)</p>
+                        <img 
+                          src="/assets/aistudio/khuphuka_ben_united_fc_kit_90b492fa.jpg" 
+                          alt="Khuphuka Ben United FC Kits" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Kaphunga FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center max-w-sm mx-auto">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Club Crest (Soaring Swallow Emblem)</p>
+                        <img 
+                          src="/assets/aistudio/kaphunga_fc_logo_f5c7d6e0.jpg" 
+                          alt="Kaphunga FC Logo" 
+                          className="w-48 h-48 object-contain rounded-full mx-auto border-2 border-red-900/50 shadow-lg bg-black"
+                        />
+                      </div>
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation (Home Maroon, Away White, Second Away Royal Blue)</p>
+                        <img 
+                          src="/assets/aistudio/kaphunga_fc_kit_3ca6f10d.jpg" 
+                          alt="Kaphunga FC Kits" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {club.name === "Gege United FC" && (
+                    <div className="space-y-4 mb-6">
+                      <div className="rounded-xl overflow-hidden border shadow-md bg-zinc-950 p-3 text-center">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Official Kit Presentation &amp; Crest (Home Red/White, Away White/Red, Second Away Cream/Blue)</p>
+                        <img 
+                          src="/assets/aistudio/gege_united_fc_76c84368.jpg" 
+                          alt="Gege United FC Kits and Crest" 
+                          className="w-full h-auto max-h-[450px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {Object.values((club as any).kits).map((kit: any, idx: number) => (
+                      <div key={idx} className="p-4 bg-zinc-50 border rounded-xl flex flex-col justify-between space-y-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-bold text-base text-zinc-900">{kit.name}</span>
+                            <div className="flex gap-1.5 items-center">
+                              <span className="w-5 h-5 rounded-full border border-zinc-300 shadow-sm" style={{ backgroundColor: kit.primaryColor }} title="Primary Color" />
+                              <span className="w-5 h-5 rounded-full border border-zinc-300 shadow-sm" style={{ backgroundColor: kit.secondaryColor }} title="Secondary Color" />
+                            </div>
+                          </div>
+                          <p className="text-xs text-zinc-600 font-medium mb-1"><span className="font-bold">Jersey:</span> {kit.jersey}</p>
+                          <p className="text-xs text-zinc-600 font-medium mb-1"><span className="font-bold">Shorts:</span> {kit.shorts}</p>
+                          <p className="text-xs text-zinc-600 font-medium"><span className="font-bold">Socks:</span> {kit.socks}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Infrastructure Verification Section */}
             <Card className="border-t-4 border-t-red-600 shadow-md">
               <CardHeader className="pb-4">
@@ -561,46 +792,29 @@ export default function ClubProfile() {
 
           {/* Right Column */}
           <div className="space-y-8">
-            {/* Performance Stats */}
+            {/* Performance Stats / Official Match Form */}
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-3 border-b border-zinc-100">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-yellow-500" /> Recent Form
+                  <CardTitle className="flex items-center gap-2 text-base font-bold text-zinc-950">
+                    <Trophy className="w-4 h-4 text-secondary shrink-0" />
+                    Official Match Form
                   </CardTitle>
-                </div>
-                <div className="mt-4 space-y-3">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Competition</span>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                      {['All', 'League', 'Cup'].map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setTypeFilter(t)}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter transition-all ${
-                            typeFilter === t 
-                              ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
-                              : 'bg-zinc-100 text-gray-500 hover:bg-zinc-200'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Result</span>
-                    <div className="flex gap-1.5">
+                  {clubMatches.length > 0 && (
+                    <div className="flex items-center gap-1">
                       {['All', 'W', 'D', 'L'].map((r) => (
                         <button
                           key={r}
                           onClick={() => setResultFilter(r)}
-                          className={`w-8 h-8 rounded-full text-[10px] font-black transition-all flex items-center justify-center ${
-                            resultFilter === r 
-                              ? r === 'W' ? 'bg-green-500 text-white shadow-lg shadow-green-100' :
-                                r === 'L' ? 'bg-red-500 text-white shadow-lg shadow-red-100' :
-                                r === 'D' ? 'bg-zinc-800 text-white shadow-lg shadow-zinc-200' :
-                                'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                          className={`w-7 h-7 rounded-full text-[10px] font-black transition-all flex items-center justify-center ${
+                            resultFilter === r
+                              ? r === 'W'
+                                ? 'bg-green-600 text-white'
+                                : r === 'L'
+                                ? 'bg-red-600 text-white'
+                                : r === 'D'
+                                ? 'bg-zinc-800 text-white'
+                                : 'bg-black text-white'
                               : 'bg-zinc-100 text-gray-500 hover:bg-zinc-200'
                           }`}
                         >
@@ -608,123 +822,64 @@ export default function ClubProfile() {
                         </button>
                       ))}
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardHeader>
-              <CardContent className="pt-2">
+              <CardContent className="pt-4">
                 <div className="space-y-2">
-                  {filteredMatches.length > 0 ? filteredMatches.map((match, i) => (
-                    <div key={i} className="border-b last:border-0 overflow-hidden">
-                      <div 
-                        className={`flex items-center justify-between py-3 px-2 rounded-lg cursor-pointer transition-colors ${
-                          expandedMatch === i ? 'bg-zinc-50' : 'hover:bg-zinc-50/50'
-                        }`}
-                        onClick={() => setExpandedMatch(expandedMatch === i ? null : i)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold text-white shadow-sm ${
-                            match.result === 'W' ? 'bg-green-500' : match.result === 'L' ? 'bg-red-500' : 'bg-zinc-400'
-                          }`}>
-                            {match.result}
-                          </span>
-                          <div>
-                            <p className="text-sm font-bold leading-tight">{match.opponent}</p>
-                            <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-                              <Calendar className="w-2.5 h-2.5" /> {match.date} • {match.type}
-                            </p>
+                  {clubMatches.length === 0 ? (
+                    <div className="py-8 text-center bg-zinc-50/50 rounded-xl border border-zinc-200 px-4">
+                      <Calendar className="w-8 h-8 text-amber-500 mx-auto mb-2 opacity-80" />
+                      <p className="text-zinc-900 text-sm font-bold">Pre-Season Development Stage</p>
+                      <p className="text-xs text-zinc-500 max-w-sm mx-auto mt-1 mb-4">
+                        No official league matches recorded yet for {club.name}. Upcoming scheduled fixtures will appear here once published.
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <Button variant="outline" size="sm" className="text-xs h-8 border-zinc-300" asChild>
+                          <Link to="/fixtures">View Fixtures</Link>
+                        </Button>
+                        <Button size="sm" className="text-xs h-8 bg-zinc-950 text-white" asChild>
+                          <Link to="/logs">View Logs</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : filteredMatches.length > 0 ? (
+                    filteredMatches.map((match, i) => (
+                      <div key={match.id || i} className="border border-zinc-200 rounded-lg p-3 bg-zinc-50/60">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold text-white shrink-0 ${
+                                match.result === 'W' ? 'bg-green-600' : match.result === 'L' ? 'bg-red-600' : 'bg-zinc-500'
+                              }`}
+                            >
+                              {match.result}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-zinc-950 truncate">{match.opponent}</p>
+                              <p className="text-[11px] text-zinc-500 truncate">
+                                {match.date} • {match.type} {match.venue ? `• ${match.venue}` : ''}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-sm text-gray-900 tracking-tight">{match.score}</span>
-                          {expandedMatch === i ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                          <span className="font-mono font-black text-sm text-zinc-950 px-2 py-0.5 bg-white rounded border border-zinc-200 shrink-0">
+                            {match.score}
+                          </span>
                         </div>
                       </div>
-
-                      <AnimatePresence>
-                        {expandedMatch === i && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: "easeInOut" }}
-                          >
-                            <div className="px-3 pb-4 pt-1 space-y-4">
-                              {/* Quick Stats Grid */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="p-2 bg-white border border-zinc-100 rounded-md">
-                                  <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-                                    <BarChart3 className="w-3 h-3" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">Possession</span>
-                                  </div>
-                                  <p className="text-sm font-black text-blue-600">{match.stats.possession}</p>
-                                </div>
-                                <div className="p-2 bg-white border border-zinc-100 rounded-md">
-                                  <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-                                    <Target className="w-3 h-3" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">Shots (On)</span>
-                                  </div>
-                                  <p className="text-sm font-black text-zinc-900">{match.stats.shotsOnTarget}</p>
-                                </div>
-                                <div className="p-2 bg-white border border-zinc-100 rounded-md">
-                                  <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-                                    <Activity className="w-3 h-3" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">Fouls</span>
-                                  </div>
-                                  <p className="text-sm font-black text-zinc-900">{match.stats.fouls}</p>
-                                </div>
-                                <div className="p-2 bg-white border border-zinc-100 rounded-md">
-                                  <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-                                    <Trophy className="w-3 h-3 text-yellow-500" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider">Corners</span>
-                                  </div>
-                                  <p className="text-sm font-black text-zinc-900">{match.stats.corners}</p>
-                                </div>
-                              </div>
-
-                              {/* Performer Ratings */}
-                              <div>
-                                <h4 className="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-2 flex items-center gap-1.5">
-                                  <Users className="w-3 h-3" /> Technical Performance
-                                </h4>
-                                <div className="space-y-1.5">
-                                  {match.stats.performers.map((p, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-2 bg-zinc-50/50 rounded border border-zinc-100">
-                                      <div className="min-w-0">
-                                        <p className="text-[11px] font-bold text-gray-900 truncate">{p.name}</p>
-                                        <p className="text-[9px] text-gray-500 truncate">{p.contribution}</p>
-                                      </div>
-                                      <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${
-                                        p.rating >= 8.5 ? 'bg-green-100 text-green-700' : 
-                                        p.rating >= 7.5 ? 'bg-blue-100 text-blue-700' : 
-                                        'bg-zinc-100 text-zinc-700'
-                                      }`}>
-                                        {p.rating.toFixed(1)}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                              
-                              <Button className="w-full text-[9px] h-7 uppercase font-bold tracking-tighter" variant="secondary">
-                                Full Match Analysis
-                              </Button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )) : (
-                    <div className="py-12 text-center bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
-                      <History className="w-8 h-8 text-zinc-300 mx-auto mb-3 opacity-50" />
-                      <p className="text-gray-500 text-sm font-bold tracking-tight">No Results Found</p>
-                      <p className="text-[10px] text-gray-400 mb-4 px-4">Adjust your filters to see more match history.</p>
-                      <Button 
-                        variant="outline" 
+                    ))
+                  ) : (
+                    <div className="py-8 text-center bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
+                      <History className="w-8 h-8 text-zinc-300 mx-auto mb-2 opacity-50" />
+                      <p className="text-gray-500 text-sm font-bold tracking-tight">No Matches Found</p>
+                      <p className="text-xs text-gray-400 mb-3 px-4">Adjust your result filter to see match history.</p>
+                      <Button
+                        variant="outline"
                         size="sm"
-                        className="text-[10px] h-7 font-bold uppercase tracking-widest px-4"
-                        onClick={() => { setTypeFilter('All'); setResultFilter('All'); }}
+                        className="text-xs h-7"
+                        onClick={() => setResultFilter('All')}
                       >
-                        Reset Filters
+                        Reset Filter
                       </Button>
                     </div>
                   )}
@@ -770,7 +925,10 @@ export default function ClubProfile() {
                       </div>
                     </div>
                   ))}
-                  <Button variant="outline" className="w-full mt-4 text-[10px] h-8 uppercase tracking-widest font-bold">View Full Technical Report</Button>
+                  <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] text-emerald-900 leading-relaxed">
+                    <span className="font-bold">Article IV Regional Policy:</span> Players from Mozambique, South Africa, Lesotho, Namibia, Botswana, and Zimbabwe are classified as local players for the first 5 seasons under FFE work permit facilitation, exempt from foreign quotas.
+                  </div>
+                  <Button variant="outline" className="w-full mt-3 text-[10px] h-8 uppercase tracking-widest font-bold">View Full Technical Report</Button>
                 </div>
               </CardContent>
             </Card>
